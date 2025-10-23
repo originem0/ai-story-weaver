@@ -70,8 +70,13 @@ export const generateStory = async (
     prompt: string,
     imageFile: File | null,
     model: string,
-    apiKey?: string
+    apiKey?: string,
+    provider: string = 'gemini'
 ): Promise<StoryResult> => {
+    if (provider !== 'gemini') {
+        throw new Error(`Story generation with "${provider}" is not yet implemented. Please use Gemini for now.`);
+    }
+
     return retryWithBackoff(async () => {
         const ai = getAIClient(apiKey);
         

@@ -11,6 +11,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { useSettings } from './hooks/useSettings';
 import { generateStory, generateGeminiSpeech, StoryResult, translateToSimplifiedChinese } from './services/geminiService';
 import { generateElevenLabsSpeech } from './services/elevenlabsService';
+import { generateEdgeSpeech } from './services/edgeTtsService';
 import { GroundingChunk } from '@google/genai';
 
 interface StoryHistory {
@@ -73,8 +74,12 @@ function App() {
     }, [imageUrl, prompt]);
 
     const handleTranslate = useCallback(async (text: string): Promise<string> => {
-        return await translateToSimplifiedChinese(text, settings.generativeApiKey);
-    }, [settings.generativeApiKey]);
+        const apiKey = settings.storyProvider === 'gemini' ? settings.geminiApiKey :
+                       settings.storyProvider === 'openai' ? settings.openaiApiKey :
+                       settings.storyProvider === 'claude' ? settings.claudeApiKey :
+                       settings.kimiApiKey;
+        return await translateToSimplifiedChinese(text, apiKey);
+    }, [settings]);
 
     const handleSelectHistory = (item: StoryHistory) => {
         setStory(item.story);
@@ -104,13 +109,19 @@ function App() {
         setElevenlabsAudio(null);
         try {
              if (settings.ttsProvider === 'gemini') {
-                const audioContent = await generateGeminiSpeech(text, settings.ttsModel, settings.generativeApiKey);
+                const audioContent = await generateGeminiSpeech(text, settings.ttsModel, settings.geminiApiKey);
                 if (audioContent) {
                     setGeminiAudio(audioContent);
                 }
-            } else {
+            } else if (settings.ttsProvider === 'elevenlabs') {
                 const audioContent = await generateElevenLabsSpeech(text, settings.elevenLabsApiKey, settings.elevenLabsVoiceId);
                 setElevenlabsAudio(audioContent);
+            } else if (settings.ttsProvider === 'edge') {
+                const audioContent = await generateEdgeSpeech(text, 'en-US');
+                setElevenlabsAudio(audioContent); // Edge TTS 也返回 ArrayBuffer
+            } else {
+                setError(`TTS provider "${settings.ttsProvider}" is not yet implemented. Please use Gemini, ElevenLabs, or Edge TTS.`);
+                setAudioError(true);
             }
         } catch (e: any) {
             console.error("Audio generation failed:", e);
@@ -144,11 +155,17 @@ function App() {
         setIsGeneratingStory(true);
 
         try {
+            const apiKey = settings.storyProvider === 'gemini' ? settings.geminiApiKey :
+                          settings.storyProvider === 'openai' ? settings.openaiApiKey :
+                          settings.storyProvider === 'claude' ? settings.claudeApiKey :
+                          settings.kimiApiKey;
+
             const { story: generatedStory, sources: groundingSources }: StoryResult = await generateStory(
                 prompt,
                 imageFile,
                 settings.storyModel,
-                settings.generativeApiKey
+                apiKey,
+                settings.storyProvider
             );
             setStory(generatedStory);
             setSources(groundingSources);

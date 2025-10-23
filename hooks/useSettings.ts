@@ -1,21 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export interface Settings {
-    generativeApiKey: string;
+    // Story generation
+    storyProvider: 'gemini' | 'openai' | 'claude' | 'kimi';
+    geminiApiKey: string;
+    openaiApiKey: string;
+    claudeApiKey: string;
+    kimiApiKey: string;
     storyModel: string;
+
+    // TTS
+    ttsProvider: 'gemini' | 'elevenlabs' | 'openai' | 'edge';
     ttsModel: string;
-    ttsProvider: 'gemini' | 'elevenlabs';
     elevenLabsApiKey: string;
     elevenLabsVoiceId: string;
 }
 
-const SETTINGS_KEY = 'ai-story-weaver-settings-v3';
+const SETTINGS_KEY = 'ai-story-weaver-settings-v4';
 
 const defaultSettings: Settings = {
-    generativeApiKey: '',
+    storyProvider: 'gemini',
+    geminiApiKey: '',
+    openaiApiKey: '',
+    claudeApiKey: '',
+    kimiApiKey: '',
     storyModel: 'gemini-2.5-flash',
-    ttsModel: 'gemini-2.5-flash-preview-tts',
     ttsProvider: 'gemini',
+    ttsModel: 'gemini-2.5-flash-preview-tts',
     elevenLabsApiKey: '',
     elevenLabsVoiceId: '',
 };

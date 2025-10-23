@@ -5,7 +5,7 @@ interface AudioPlayerProps {
     base64Audio: string | null;
     arrayBufferAudio: ArrayBuffer | null;
     isLoading: boolean;
-    ttsProvider: 'gemini' | 'elevenlabs';
+    ttsProvider: 'gemini' | 'elevenlabs' | 'openai' | 'edge';
     hasError: boolean;
     onRegenerate: () => void;
 }
@@ -53,8 +53,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ base64Audio, arrayBuff
             } else if (ttsProvider === 'elevenlabs' && arrayBufferAudio) {
                 const blob = new Blob([arrayBufferAudio], { type: 'audio/mpeg' });
                 objectUrl = URL.createObjectURL(blob);
+            } else if (ttsProvider === 'edge' && arrayBufferAudio) {
+                // Edge TTS returns MP3 format
+                const blob = new Blob([arrayBufferAudio], { type: 'audio/mpeg' });
+                objectUrl = URL.createObjectURL(blob);
             }
-    
+
             if (objectUrl) {
                 setAudioSrc(objectUrl);
             }
@@ -115,10 +119,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ base64Audio, arrayBuff
     
     const handleDownload = () => {
         if (!audioSrc) return;
-        
+
         const link = document.createElement('a');
         link.href = audioSrc;
-        link.download = `story-narration-${Date.now()}.${ttsProvider === 'gemini' ? 'wav' : 'mp3'}`;
+
+        // Determine file extension based on provider
+        let extension = 'mp3';
+        if (ttsProvider === 'gemini') {
+            extension = 'wav';
+        } else if (ttsProvider === 'edge' || ttsProvider === 'elevenlabs') {
+            extension = 'mp3';
+        }
+
+        link.download = `story-narration-${Date.now()}.${extension}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
