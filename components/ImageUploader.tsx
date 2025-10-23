@@ -28,7 +28,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, ima
 
     return (
         <div
-            className="w-full aspect-video bg-white/80 backdrop-blur-sm border-2 border-dashed border-slate-300/60 rounded-xl flex items-center justify-center cursor-pointer hover:border-teal-500 hover:shadow-md transition-all duration-300 shadow-sm"
+            className="w-full aspect-video bg-gradient-to-br from-slate-50 to-blue-50/30 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50/30 hover:shadow-md transition-all duration-300 shadow-sm group"
             onClick={handleClick}
         >
             <input
@@ -39,12 +39,20 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, ima
                 className="hidden"
             />
             {imageUrl ? (
-                <img src={imageUrl} alt="Uploaded preview" className="w-full h-full object-contain rounded-lg bg-slate-100" />
+                <div className="relative w-full h-full">
+                    <img src={imageUrl} alt="Uploaded preview" className="w-full h-full object-contain rounded-lg" />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
+                        <span className="opacity-0 group-hover:opacity-100 bg-white/90 px-4 py-2 rounded-full text-sm font-medium text-slate-700 transition-opacity">
+                            Click to change image
+                        </span>
+                    </div>
+                </div>
             ) : (
-                <div className="text-center">
+                <div className="text-center px-6">
                     <ImageIcon />
-                    <p className="mt-2 text-slate-600">Click to upload</p>
-                    <p className="text-xs text-slate-500">PNG, JPG, WEBP</p>
+                    <p className="mt-3 text-slate-700 font-medium">Click to upload an image</p>
+                    <p className="text-xs text-slate-500 mt-1">Supports PNG, JPG, WEBP, GIF</p>
+                    <p className="text-xs text-teal-600 mt-2 font-medium">📸 The clearer the image, the better the story</p>
                 </div>
             )}
         </div>

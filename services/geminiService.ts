@@ -299,3 +299,19 @@ export const validateGeminiTTSModel = async (apiKey: string, model: string): Pro
         return { success: false, message, errorType };
     }
 };
+
+export const translateToSimplifiedChinese = async (
+    text: string,
+    apiKey?: string
+): Promise<string> => {
+    const ai = getAIClient(apiKey);
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ parts: [{ text: `Translate the following text to Simplified Chinese. Keep the markdown formatting intact. Only return the translated text, nothing else.\n\n${text}` }] }],
+        config: {
+            maxOutputTokens: 8192,
+        },
+    });
+
+    return response.text || '';
+};

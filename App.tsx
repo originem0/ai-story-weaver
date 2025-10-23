@@ -6,10 +6,21 @@ import { SourcesDisplay } from './components/SourcesDisplay';
 import { Spinner } from './components/Spinner';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SettingsIcon } from './components/icons/SettingsIcon';
+import { WelcomeBanner } from './components/WelcomeBanner';
+import { HistoryPanel } from './components/HistoryPanel';
 import { useSettings } from './hooks/useSettings';
-import { generateStory, generateGeminiSpeech, StoryResult } from './services/geminiService';
+import { generateStory, generateGeminiSpeech, StoryResult, translateToSimplifiedChinese } from './services/geminiService';
 import { generateElevenLabsSpeech } from './services/elevenlabsService';
 import { GroundingChunk } from '@google/genai';
+
+interface StoryHistory {
+    id: string;
+    story: string;
+    imageUrl: string;
+    prompt: string;
+    timestamp: number;
+    sources: GroundingChunk[];
+}
 
 function App() {
     const { settings, saveSettings, isLoaded } = useSettings();
@@ -22,11 +33,65 @@ function App() {
     const [elevenlabsAudio, setElevenlabsAudio] = useState<ArrayBuffer | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [audioError, setAudioError] = useState(false);
+    const [history, setHistory] = useState<StoryHistory[]>([]);
 
     const [isGeneratingStory, setIsGeneratingStory] = useState(false);
     const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+    // Load history from localStorage
+    React.useEffect(() => {
+        try {
+            const savedHistory = localStorage.getItem('ai-story-weaver-history');
+            if (savedHistory) {
+                setHistory(JSON.parse(savedHistory));
+            }
+        } catch (error) {
+            console.error('Failed to load history:', error);
+        }
+    }, []);
+
+    // Save history to localStorage
+    const saveToHistory = useCallback((newStory: string, newSources: GroundingChunk[]) => {
+        if (!newStory || !imageUrl) return;
+
+        const newHistoryItem: StoryHistory = {
+            id: Date.now().toString(),
+            story: newStory,
+            imageUrl: imageUrl,
+            prompt: prompt,
+            timestamp: Date.now(),
+            sources: newSources,
+        };
+
+        setHistory(prev => {
+            const updated = [newHistoryItem, ...prev].slice(0, 5); // Keep only 5 most recent
+            localStorage.setItem('ai-story-weaver-history', JSON.stringify(updated));
+            return updated;
+        });
+    }, [imageUrl, prompt]);
+
+    const handleTranslate = useCallback(async (text: string): Promise<string> => {
+        return await translateToSimplifiedChinese(text, settings.generativeApiKey);
+    }, [settings.generativeApiKey]);
+
+    const handleSelectHistory = (item: StoryHistory) => {
+        setStory(item.story);
+        setSources(item.sources);
+        setImageUrl(item.imageUrl);
+        setPrompt(item.prompt);
+        setIsHistoryOpen(false);
+    };
+
+    const handleDeleteHistory = (id: string) => {
+        setHistory(prev => {
+            const updated = prev.filter(item => item.id !== id);
+            localStorage.setItem('ai-story-weaver-history', JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     const handleImageUpload = (file: File) => {
         setImageFile(file);
         setImageUrl(URL.createObjectURL(file));
@@ -65,11 +130,11 @@ function App() {
     }, [settings]);
 
     const handleGenerateStory = useCallback(async () => {
-        if (!prompt.trim()) {
-            setError('Please enter a story prompt.');
+        if (!imageFile) {
+            setError('📷 Please upload an image first.');
             return;
         }
-        
+
         setError(null);
         setAudioError(false);
         setStory('');
@@ -87,7 +152,10 @@ function App() {
             );
             setStory(generatedStory);
             setSources(groundingSources);
-            
+
+            // Save to history
+            saveToHistory(generatedStory, groundingSources);
+
             if (generatedStory) {
                 await handleGenerateAudio(generatedStory);
             }
@@ -122,40 +190,61 @@ function App() {
             <div className="bg-slate-50 text-slate-900 min-h-screen font-sans">
                 <div className="container mx-auto px-6 py-8 max-w-6xl relative">
                     <header className="text-center mb-10 relative">
-                         <h1 className="text-5xl font-extrabold text-teal-700 pb-3 tracking-tight">
+                         <h1 className="text-5xl font-extrabold bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-transparent pb-3 tracking-tight">
                             AI Story Weaver
                         </h1>
-                        <p className="text-slate-700 text-lg mt-2 font-medium">
-                           Craft magical stories from your imagination
+                        <p className="text-slate-600 text-lg mt-2">
+                           Turn images into stories • Practice English through storytelling
                         </p>
-                         <button
-                            onClick={() => setIsSettingsOpen(true)}
-                            className="absolute top-0 right-0 p-2 rounded-full bg-white border-2 border-slate-300 text-slate-600 hover:text-teal-600 hover:border-teal-500 hover:shadow-md transition-all"
-                            aria-label="Open settings"
-                            title="Settings"
-                        >
-                            <SettingsIcon />
-                        </button>
+                         <div className="absolute top-0 right-0 flex gap-2">
+                            <button
+                                onClick={() => setIsHistoryOpen(true)}
+                                className="p-2 rounded-full bg-white border-2 border-slate-300 text-slate-600 hover:text-blue-600 hover:border-blue-500 hover:shadow-md transition-all relative"
+                                aria-label="View history"
+                                title="Story History"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {history.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                                        {history.length}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setIsSettingsOpen(true)}
+                                className="p-2 rounded-full bg-white border-2 border-slate-300 text-slate-600 hover:text-teal-600 hover:border-teal-500 hover:shadow-md transition-all"
+                                aria-label="Open settings"
+                                title="Settings"
+                            >
+                                <SettingsIcon />
+                            </button>
+                        </div>
                     </header>
 
                     <main className="space-y-4">
+                        {/* Welcome banner for first-time users */}
+                        <WelcomeBanner />
+
                         {/* 第一行：图片和输入框并排 */}
                         <div className="grid md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    📷 Upload Image
+                                    📷 Upload Image <span className="text-xs text-slate-500 font-normal">(Required)</span>
                                 </label>
                                 <ImageUploader onImageUpload={handleImageUpload} imageUrl={imageUrl} />
+                                <p className="text-xs text-slate-500 mt-2">💡 Try photos of people, places, objects, or scenes</p>
                             </div>
                             <div>
                                 <label htmlFor="prompt" className="block text-sm font-semibold text-slate-700 mb-2">
-                                    💬 Image Prompt <span className="text-xs text-slate-500 font-normal">(Optional - Customize your requirements)</span>
+                                    ✏️ Story Prompt <span className="text-xs text-slate-500 font-normal">(Optional)</span>
                                 </label>
                                 <textarea
                                     id="prompt"
                                     value={prompt}
                                     onChange={(e) => setPrompt(e.target.value)}
-                                    placeholder="Optional: Add custom requirements like word count, language, style, tone, etc.&#10;&#10;Example: Write a 500-word story in Chinese with a humorous tone..."
+                                    placeholder="Describe what story you want to create based on this image...&#10;&#10;Examples:&#10;• Tell a story about what happened before this moment&#10;• Describe this scene in poetic language&#10;• Create a mystery story based on this image&#10;• Write in the style of a news report"
                                     className="w-full h-[220px] bg-white border-2 border-slate-300 rounded-xl p-4 text-slate-900 text-base focus:ring-2 focus:ring-teal-500 focus:border-teal-500 hover:shadow-md transition-all resize-none shadow-sm"
                                 />
                             </div>
@@ -165,12 +254,16 @@ function App() {
                         <div className="text-center py-2">
                             <button
                                 onClick={handleGenerateStory}
-                                disabled={isGeneratingStory || isGeneratingAudio}
-                                className="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-bold py-4 px-10 rounded-full transition-all duration-300 inline-flex items-center text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
+                                disabled={isGeneratingStory || isGeneratingAudio || !imageFile}
+                                className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-white font-bold py-4 px-10 rounded-full transition-all duration-300 inline-flex items-center gap-3 text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none disabled:shadow-md"
+                                title={!imageFile ? 'Please upload an image first' : ''}
                             >
                                 {isGeneratingStory || isGeneratingAudio ? <Spinner /> : null}
-                                {isGeneratingStory ? '✨ Creating...' : (isGeneratingAudio ? '🎙️ Narrating...' : '🚀 Create Story')}
+                                {isGeneratingStory ? '✨ Creating Story...' : (isGeneratingAudio ? '🎙️ Narrating...' : '🚀 Generate Story & Audio')}
                             </button>
+                            {!imageFile && (
+                                <p className="text-xs text-slate-500 mt-2">⬆️ Upload an image to get started</p>
+                            )}
                         </div>
 
                         {/* 错误提示（紧凑显示） */}
@@ -183,7 +276,7 @@ function App() {
                         {/* 第三行：生成的故事（仅在有内容或加载时显示） */}
                         {(story || isGeneratingStory) && (
                             <div className={isGeneratingStory ? 'min-h-[300px]' : ''}>
-                                <StoryDisplay story={story} isLoading={isGeneratingStory} />
+                                <StoryDisplay story={story} isLoading={isGeneratingStory} onTranslate={handleTranslate} />
                             </div>
                         )}
 
@@ -204,17 +297,26 @@ function App() {
 
                     </main>
                     
-                     <footer className="text-center mt-12 text-slate-500 text-sm">
-                        <p>Powered by AI Models</p>
+                     <footer className="text-center mt-16 pb-8 text-slate-400 text-sm space-y-2">
+                        <p>💡 Tip: Upload any image to generate a creative story based on what you see</p>
+                        <p className="text-xs">Powered by Gemini AI & ElevenLabs</p>
                     </footer>
                 </div>
             </div>
             
-            <SettingsPanel 
+            <SettingsPanel
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
                 settings={settings}
                 onSave={saveSettings}
+            />
+
+            <HistoryPanel
+                history={history}
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+                onSelect={handleSelectHistory}
+                onDelete={handleDeleteHistory}
             />
         </>
     );
