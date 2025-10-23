@@ -25,32 +25,29 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, isLoading }) 
     };
 
     return (
-        <div className="bg-slate-900/70 p-4 rounded-lg h-80 flex flex-col border border-slate-700">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold text-purple-300">Generated Story</h3>
+        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl flex flex-col border border-slate-200/50 shadow-lg h-full">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b-2 border-slate-200">
+                <h3 className="text-lg font-bold text-slate-900">📖 Generated Story</h3>
                 {story && !isLoading && (
                      <button
                         onClick={handleCopy}
-                        className="flex items-center space-x-1.5 text-sm text-slate-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
                         disabled={copied}
                     >
                         <CopyIcon />
-                        <span>{copied ? 'Copied!' : 'Copy'}</span>
+                        <span>{copied ? '✓ Copied!' : 'Copy'}</span>
                     </button>
                 )}
             </div>
-            <div className="flex-grow overflow-y-auto pr-2 text-slate-300 custom-scrollbar">
+            <div className="flex-grow overflow-y-auto pr-2 text-slate-900 custom-scrollbar leading-relaxed">
                 {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                        <p className="text-slate-400 italic">The AI is searching the web and dreaming up a story...</p>
+                    <div className="flex flex-col items-center justify-center h-full space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                        <p className="text-slate-500 italic">✨ Creating your story...</p>
                     </div>
                 ) : story ? (
-                    <p className="whitespace-pre-wrap">{story}</p>
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                         <p className="text-slate-500">Your story will appear here.</p>
-                    </div>
-                )}
+                    <p className="whitespace-pre-wrap text-base">{story}</p>
+                ) : null}
             </div>
         </div>
     );

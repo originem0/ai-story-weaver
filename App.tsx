@@ -49,7 +49,15 @@ function App() {
             }
         } catch (e: any) {
             console.error("Audio generation failed:", e);
-            setError(`Audio generation failed: ${e.message}`);
+            const errorStr = JSON.stringify(e);
+            const errorMessage = e.message || e.toString();
+            
+            // 判断错误类型并给出友好提示
+            if (errorStr.includes('503') || errorStr.includes('UNAVAILABLE') || errorMessage.includes('overloaded')) {
+                setError(`⚠️ TTS 服务器当前负载过高。已自动重试 3 次但仍失败，请稍后再试。故事已生成，可手动点击重新生成语音。`);
+            } else {
+                setError(`🔊 语音生成失败: ${errorMessage}。故事已生成，可手动点击重新生成语音。`);
+            }
             setAudioError(true);
         } finally {
             setIsGeneratingAudio(false);
@@ -86,7 +94,19 @@ function App() {
 
         } catch (e: any) {
             console.error(e);
-            setError(`An error occurred during story generation: ${e.message}`);
+            const errorStr = JSON.stringify(e);
+            const errorMessage = e.message || e.toString();
+            
+            // 判断错误类型并给出友好提示
+            if (errorStr.includes('503') || errorStr.includes('UNAVAILABLE') || errorMessage.includes('overloaded')) {
+                setError(`⚠️ Gemini API 服务器当前负载过高。已自动重试 3 次但仍失败，请稍后再试。错误详情: ${errorMessage}`);
+            } else if (errorMessage.includes('401') || errorMessage.includes('API key')) {
+                setError(`🔑 API Key 错误: ${errorMessage}。请在右上角设置中检查 API Key 是否正确。`);
+            } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+                setError(`🤖 模型错误: ${errorMessage}。请在设置中检查模型名称是否正确。`);
+            } else {
+                setError(`❌ 故事生成失败: ${errorMessage}`);
+            }
         } finally {
             setIsGeneratingStory(false);
         }
@@ -99,73 +119,93 @@ function App() {
 
     return (
         <>
-            <div className="bg-slate-900 text-white min-h-screen font-sans">
-                <div className="container mx-auto px-4 py-8 max-w-4xl">
-                    <header className="text-center mb-8 relative">
-                         <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 text-transparent bg-clip-text pb-2">
+            <div className="bg-slate-50 text-slate-900 min-h-screen font-sans">
+                <div className="container mx-auto px-6 py-8 max-w-6xl relative">
+                    <header className="text-center mb-10 relative">
+                         <h1 className="text-5xl font-extrabold text-teal-700 pb-3 tracking-tight">
                             AI Story Weaver
                         </h1>
-                        <p className="text-slate-400">
-                           Craft magical stories from your imagination, powered by AI.
+                        <p className="text-slate-700 text-lg mt-2 font-medium">
+                           Craft magical stories from your imagination
                         </p>
                          <button
                             onClick={() => setIsSettingsOpen(true)}
-                            className="absolute top-0 right-0 text-slate-400 hover:text-purple-400 transition-colors"
+                            className="absolute top-0 right-0 p-2 rounded-full bg-white border-2 border-slate-300 text-slate-600 hover:text-teal-600 hover:border-teal-500 hover:shadow-md transition-all"
                             aria-label="Open settings"
+                            title="Settings"
                         >
                             <SettingsIcon />
                         </button>
                     </header>
 
-                    <main className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                               <ImageUploader onImageUpload={handleImageUpload} imageUrl={imageUrl} />
-                               <div>
-                                    <label htmlFor="prompt" className="block text-sm font-medium text-slate-300 mb-1">
-                                        Describe your story
-                                    </label>
-                                    <textarea
-                                        id="prompt"
-                                        value={prompt}
-                                        onChange={(e) => setPrompt(e.target.value)}
-                                        placeholder="e.g., A brave knight and a clever dragon team up to find a hidden treasure..."
-                                        className="w-full h-36 bg-slate-800 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition resize-none"
-                                        rows={4}
-                                    />
-                               </div>
+                    <main className="space-y-4">
+                        {/* 第一行：图片和输入框并排 */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    📷 Upload Image
+                                </label>
+                                <ImageUploader onImageUpload={handleImageUpload} imageUrl={imageUrl} />
                             </div>
-                            <StoryDisplay story={story} isLoading={isGeneratingStory} />
+                            <div>
+                                <label htmlFor="prompt" className="block text-sm font-semibold text-slate-700 mb-2">
+                                    💬 Image Prompt <span className="text-xs text-slate-500 font-normal">(Optional - Customize your requirements)</span>
+                                </label>
+                                <textarea
+                                    id="prompt"
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    placeholder="Optional: Add custom requirements like word count, language, style, tone, etc.&#10;&#10;Example: Write a 500-word story in Chinese with a humorous tone..."
+                                    className="w-full h-[220px] bg-white border-2 border-slate-300 rounded-xl p-4 text-slate-900 text-base focus:ring-2 focus:ring-teal-500 focus:border-teal-500 hover:shadow-md transition-all resize-none shadow-sm"
+                                />
+                            </div>
                         </div>
 
-                         <div className="text-center">
+                        {/* 第二行：生成按钮 */}
+                        <div className="text-center py-2">
                             <button
                                 onClick={handleGenerateStory}
                                 disabled={isGeneratingStory || isGeneratingAudio}
-                                className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-full transition-colors duration-300 inline-flex items-center"
+                                className="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-bold py-4 px-10 rounded-full transition-all duration-300 inline-flex items-center text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
                             >
                                 {isGeneratingStory || isGeneratingAudio ? <Spinner /> : null}
-                                {isGeneratingStory ? 'Weaving your story...' : (isGeneratingAudio ? 'Narrating story...' : 'Create Story & Speech')}
+                                {isGeneratingStory ? '✨ Creating...' : (isGeneratingAudio ? '🎙️ Narrating...' : '🚀 Create Story')}
                             </button>
                         </div>
 
-                        {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-lg text-center">{error}</div>}
+                        {/* 错误提示（紧凑显示） */}
+                        {error && (
+                            <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded text-red-800 text-sm">
+                                {error}
+                            </div>
+                        )}
 
-                        <AudioPlayer
-                            base64Audio={geminiAudio}
-                            arrayBufferAudio={elevenlabsAudio}
-                            isLoading={isGeneratingAudio}
-                            ttsProvider={settings.ttsProvider}
-                            hasError={audioError}
-                            onRegenerate={() => story && handleGenerateAudio(story)}
-                        />
+                        {/* 第三行：生成的故事（仅在有内容或加载时显示） */}
+                        {(story || isGeneratingStory) && (
+                            <div className={isGeneratingStory ? 'min-h-[300px]' : ''}>
+                                <StoryDisplay story={story} isLoading={isGeneratingStory} />
+                            </div>
+                        )}
 
-                        <SourcesDisplay sources={sources} />
+                        {/* 第四行：音频播放器（仅在有音频或加载时显示，紧贴故事） */}
+                        {(geminiAudio || elevenlabsAudio || isGeneratingAudio || audioError) && (
+                            <AudioPlayer
+                                base64Audio={geminiAudio}
+                                arrayBufferAudio={elevenlabsAudio}
+                                isLoading={isGeneratingAudio}
+                                ttsProvider={settings.ttsProvider}
+                                hasError={audioError}
+                                onRegenerate={() => story && handleGenerateAudio(story)}
+                            />
+                        )}
+
+                        {/* 第五行：来源链接（仅在有内容时显示） */}
+                        {sources.length > 0 && <SourcesDisplay sources={sources} />}
 
                     </main>
                     
                      <footer className="text-center mt-12 text-slate-500 text-sm">
-                        <p>Powered by Configurable AI Models.</p>
+                        <p>Powered by AI Models</p>
                     </footer>
                 </div>
             </div>

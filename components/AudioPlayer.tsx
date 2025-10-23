@@ -29,6 +29,12 @@ const SpeakerIcon: React.FC = () => (
     </svg>
 );
 
+const DownloadIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+);
+
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ base64Audio, arrayBufferAudio, isLoading, ttsProvider, hasError, onRegenerate }) => {
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -106,11 +112,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ base64Audio, arrayBuff
         const seconds = Math.floor(time % 60);
         return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     };
+    
+    const handleDownload = () => {
+        if (!audioSrc) return;
+        
+        const link = document.createElement('a');
+        link.href = audioSrc;
+        link.download = `story-narration-${Date.now()}.${ttsProvider === 'gemini' ? 'wav' : 'mp3'}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     if (isLoading) {
         return (
-            <div className="bg-slate-900/70 p-4 rounded-lg flex items-center justify-center border border-slate-700">
-                <p className="text-slate-400 italic">Generating audio...</p>
+            <div className="bg-white p-4 rounded-lg border-2 border-slate-200 shadow-sm flex items-center justify-center space-x-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                <p className="text-slate-600">🎙️ Generating audio narration...</p>
             </div>
         );
     }
@@ -139,8 +157,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ base64Audio, arrayBuff
     }
 
     return (
-        <div className="bg-slate-900/70 p-4 rounded-lg border border-slate-700">
-            <h3 className="text-lg font-semibold text-purple-300 mb-3">Narration</h3>
+        <div className="bg-white/80 backdrop-blur-sm p-5 rounded-xl border border-slate-200/50 shadow-lg">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b-2 border-slate-200">
+                <h3 className="text-base font-bold text-slate-900">🎙️ Audio Narration</h3>
+                <button
+                    onClick={handleDownload}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 transition-colors shadow-sm"
+                    title="Download audio"
+                >
+                    <DownloadIcon />
+                    <span>Download</span>
+                </button>
+            </div>
             <div className="flex items-center space-x-4">
                 <audio
                     ref={audioRef}
@@ -151,22 +179,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ base64Audio, arrayBuff
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                 />
-                <button onClick={togglePlayPause} className="text-purple-400 hover:text-purple-300">
+                <button onClick={togglePlayPause} className="text-teal-600 hover:text-teal-700 transition-colors">
                     {isPlaying ? <PauseIcon /> : <PlayIcon />}
                 </button>
                 <div className="flex items-center space-x-2 flex-grow">
-                    <span className="text-xs text-slate-400 w-10 text-center">{formatTime(currentTime)}</span>
+                    <span className="text-xs text-slate-600 w-10 text-center">{formatTime(currentTime)}</span>
                     <input
                         type="range"
                         min="0"
                         max={duration || 0}
                         value={currentTime}
                         onChange={handleSeek}
-                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer range-sm accent-purple-500"
+                        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer range-sm accent-teal-600"
                     />
-                    <span className="text-xs text-slate-400 w-10 text-center">{formatTime(duration)}</span>
+                    <span className="text-xs text-slate-600 w-10 text-center">{formatTime(duration)}</span>
                 </div>
-                <SpeakerIcon />
+                <div className="text-slate-500">
+                    <SpeakerIcon />
+                </div>
             </div>
         </div>
     );

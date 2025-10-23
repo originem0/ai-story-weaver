@@ -28,7 +28,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, ima
 
     return (
         <div
-            className="w-full aspect-video bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-purple-500 transition-colors duration-300"
+            className="w-full aspect-video bg-white/80 backdrop-blur-sm border-2 border-dashed border-slate-300/60 rounded-xl flex items-center justify-center cursor-pointer hover:border-teal-500 hover:shadow-md transition-all duration-300 shadow-sm"
             onClick={handleClick}
         >
             <input
@@ -39,11 +39,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, ima
                 className="hidden"
             />
             {imageUrl ? (
-                <img src={imageUrl} alt="Uploaded preview" className="w-full h-full object-cover rounded-lg" />
+                <img src={imageUrl} alt="Uploaded preview" className="w-full h-full object-contain rounded-lg bg-slate-100" />
             ) : (
                 <div className="text-center">
                     <ImageIcon />
-                    <p className="mt-2 text-slate-400">Click to upload an image</p>
+                    <p className="mt-2 text-slate-600">Click to upload</p>
                     <p className="text-xs text-slate-500">PNG, JPG, WEBP</p>
                 </div>
             )}
