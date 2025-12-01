@@ -70,25 +70,34 @@ export const generateStory = async (
     prompt: string,
     imageFile: File | null,
     model: string,
-    apiKey?: string,
-    provider: string = 'gemini'
+    apiKey?: string
 ): Promise<StoryResult> => {
-    if (provider !== 'gemini') {
-        throw new Error(`Story generation with "${provider}" is not yet implemented. Please use Gemini for now.`);
-    }
-
     return retryWithBackoff(async () => {
         const ai = getAIClient(apiKey);
         
-        // 构建基础提示词
-        let basePrompt = `Analyze the provided image with strict accuracy. Describe only what is clearly visible. Do not invent details or make assumptions about ambiguous elements (e.g., if gender isn't clear, use "a person").
+        // 构建基础提示词 - 作为"看图说话"的示范性范文（精简版）
+        let basePrompt = `You are creating a SHORT model essay (150-250 words) for English learners practicing "picture description" (看图说话).
 
-After describing the image, determine if it depicts a well-known person, place, or a significant event by using the search tool. Prioritize official and reputable sources.
+**STRUCTURE (keep each section brief):**
 
-- If it IS a significant event/person/place: Weave the factual context into a compelling narrative based on the image.
-- If it is NOT a significant event/person/place: Focus primarily on a deep, creative interpretation of the visual details in the image. Use search results only for minor contextual details if necessary.
+1. **What I See** (2-3 sentences)
+   Describe the key visible elements with precise vocabulary. Avoid generic words like "beautiful" or "nice."
 
-The final story should be vivid, creative, and engaging.`;
+2. **What I Feel** (2-3 sentences)
+   What mood or story does this image convey? Connect visuals to meaning.
+
+3. **Mini Story** (3-5 sentences)
+   A short, engaging narrative woven from your observations.
+
+**RULES:**
+- Total length: 150-250 words (DO NOT exceed)
+- **Bold** 2-3 useful expressions/collocations for learners to study
+- Use varied sentence structures (short + long)
+- Natural, conversational tone — not overly literary
+- Only describe what's clearly visible; use "someone" if identity is unclear
+- Use search tool for recognizable people/places/events
+
+Keep it concise and learner-friendly. Quality over quantity.`;
 
         // 如果用户提供了自定义提示，优先采纳
         if (prompt && prompt.trim() !== '') {
@@ -211,41 +220,41 @@ const parseGeminiError = (error: any): { message: string; errorType: ValidationR
 
 export const validateGeminiStoryModel = async (apiKey: string, model: string): Promise<ValidationResult> => {
     if (!apiKey || apiKey.trim() === '') {
-        return { 
-            success: false, 
-            message: 'API Key 不能为空。请在设置中填写有效的 Gemini API Key。',
+        return {
+            success: false,
+            message: 'API Key 不能为空。',
             errorType: 'config'
         };
     }
-    
+
     if (!model || model.trim() === '') {
-        return { 
-            success: false, 
-            message: '模型名称不能为空。请选择或输入有效的模型名称。',
+        return {
+            success: false,
+            message: '模型名称不能为空。',
             errorType: 'config'
         };
     }
-    
+
     try {
-        const ai = getAIClient(apiKey);
-        const response = await ai.models.generateContent({
-            model,
-            contents: 'test',
-            config: { maxOutputTokens: 5 }
-        });
-        
-        if (response.text) {
-            return { 
-                success: true, 
-                message: `✅ 故事生成模型 "${model}" 验证成功！API Key 有效。` 
+        // 使用重试逻辑，与实际生成保持一致
+        return await retryWithBackoff(async () => {
+            const ai = getAIClient(apiKey);
+            const response = await ai.models.generateContent({
+                model,
+                contents: [{ parts: [{ text: 'Say "ok" in one word.' }] }],
+                config: { maxOutputTokens: 10 }
+            });
+
+            if (response.text) {
+                return { success: true, message: 'OK' };
+            }
+
+            return {
+                success: false,
+                message: '模型未返回数据',
+                errorType: 'config' as const
             };
-        }
-        
-        return { 
-            success: false, 
-            message: '模型调用成功但未返回数据。这可能是模型配置问题。',
-            errorType: 'config'
-        };
+        }, 2, 1000); // 最多重试2次，初始延迟1秒（测试时用较短延迟）
     } catch (e: any) {
         console.error("Gemini Story Model Validation Error:", e);
         const { message, errorType } = parseGeminiError(e);
@@ -255,26 +264,26 @@ export const validateGeminiStoryModel = async (apiKey: string, model: string): P
 
 export const validateGeminiTTSModel = async (apiKey: string, model: string): Promise<ValidationResult> => {
     if (!apiKey || apiKey.trim() === '') {
-        return { 
-            success: false, 
-            message: 'API Key 不能为空。请在设置中填写有效的 Gemini API Key。',
+        return {
+            success: false,
+            message: 'API Key 不能为空。',
             errorType: 'config'
         };
     }
-    
+
     if (!model || model.trim() === '') {
-        return { 
-            success: false, 
-            message: 'TTS 模型名称不能为空。请选择或输入有效的 TTS 模型名称。',
+        return {
+            success: false,
+            message: 'TTS 模型名称不能为空。',
             errorType: 'config'
         };
     }
-    
+
     try {
         const ai = getAIClient(apiKey);
         const response = await ai.models.generateContent({
             model,
-            contents: [{ parts: [{ text: 'test' }] }],
+            contents: [{ parts: [{ text: 'Hi' }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
@@ -284,18 +293,15 @@ export const validateGeminiTTSModel = async (apiKey: string, model: string): Pro
                 },
             },
         });
-        
+
         const hasAudio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (hasAudio) {
-            return { 
-                success: true, 
-                message: `✅ TTS 模型 "${model}" 验证成功！支持语音生成。` 
-            };
+            return { success: true, message: 'OK' };
         }
-        
-        return { 
-            success: false, 
-            message: `模型 "${model}" 调用成功但未返回音频数据。该模型可能不支持 TTS 功能。`,
+
+        return {
+            success: false,
+            message: '该模型不支持 TTS',
             errorType: 'config'
         };
     } catch (e: any) {
